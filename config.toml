@@ -1,0 +1,15 @@
+folder_rename_pattern = "{title} ({year})"
+file_rename_pattern = "{title}.{year}"
+api_url = "https://api.siliconflow.cn/v1"
+model = "Qwen/Qwen2.5-32B-Instruct"
+token = "sk-*****"
+
+[db_info]
+username = "root"
+password = "12345"
+database = "189_films"
+
+[[accounts]]
+username = "139********"
+password = "123456"
+root_folder = "123456*******"
