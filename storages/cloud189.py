@@ -107,6 +107,9 @@ class Cloud189:
             return r.json().get("id")
         return None
 
+    def create_root_folder(self, folder_name: str):
+        return self.create_folder(folder_name, "-11")
+
     def get_share_info(self, share_code: str):
         url = f"{self.api_url}/open/share/getShareInfoByCodeV2.action?shareCode={share_code}"
         r = self.web.get(url)
@@ -169,6 +172,7 @@ class Cloud189Storage(Storage):
         self.accounts_num = len(config.accounts)
         self.current_client_index = 0
         self.logger = logger
+        self.config = config
 
     @property
     def current_client(self):
@@ -176,6 +180,8 @@ class Cloud189Storage(Storage):
 
     @property
     def current_root_folder_id(self):
+        if not self.root_folders[self.current_client_index]:
+            self.config.accounts[self.current_client_index].root_folder = self.root_folders[self.current_client_index] = self.current_client.create_root_folder("电影")
         return self.root_folders[self.current_client_index]
 
     def switch_client(self):
@@ -217,7 +223,6 @@ class Cloud189Storage(Storage):
             if not self.current_client.save_share_file(max_size_file.fileId, share_id, f"{file_name}.{file_ext}", save_path):
                 raise BaseException("转存失败")
             else:
-                time.sleep(2)
                 return file_ext, None
         raise BaseException("获取分享信息失败")
 
@@ -238,3 +243,10 @@ class Cloud189Storage(Storage):
 
     def create_folder(self, folder_name, parent_folder_path: str=None):
         return self.current_client.create_folder(folder_name, self.current_root_folder_id)
+
+    def wait_until_save_complete(self, file_name, save_path):
+        time.sleep(2)
+        return
+
+    def get_current_account_info(self):
+        return "Cloud189", self.current_client.username

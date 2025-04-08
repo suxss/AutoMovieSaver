@@ -10,3 +10,9 @@ class Storage(ABC):
 
     @abstractmethod
     def create_folder(self, folder_name, parent_folder_path): ...
+
+    @abstractmethod
+    def wait_until_save_complete(self, file_name, save_path): ...
+
+    @abstractmethod
+    def get_current_account_info(self): ...

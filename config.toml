@@ -3,13 +3,21 @@ file_rename_pattern = "{title}.{year}"
 api_url = "https://api.siliconflow.cn/v1"
 model = "Qwen/Qwen2.5-32B-Instruct"
 token = "sk-*****"
+cron = "0 6 * * *"  # 定时任务, 每天早上 6 点执行一次, 参考值: "0 0 * * *", "0 12 * * *", "0 18 * * *", "0 23 * * *", "*/5 * * * *"
 
+[[accounts]]
+username = "139********"  # 账号
+password = "123456"  # 密码
+root_folder = ""  # 为空时将自动在根文件夹创建"电影"文件夹, 并在运行结束后将其id保存至配置文件中以便下一次运行
+
+# 支持多个账号
+#[[accounts]]
+#username = "139********"
+#password = "123456"
+#root_folder = ""
+
+# 使用 SQLite 时无需配置下面的信息
 [db_info]
 username = "root"
 password = "12345"
 database = "189_films"
-
-[[accounts]]
-username = "139********"
-password = "123456"
-root_folder = "123456*******"

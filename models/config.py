@@ -23,4 +23,5 @@ class Config:
     api_url: str
     model: str
     token: str
+    cron: str
     db_info: DBInfo
