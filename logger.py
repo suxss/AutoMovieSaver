@@ -38,7 +38,7 @@ class LogModule(Logger):
 
     @classmethod
     def logger(cls):
-        return get_logger(logging.DEBUG)
+        return get_logger(logging.INFO)
 
     @classmethod
     def log(cls, message, log_type):
