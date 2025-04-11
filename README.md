@@ -18,15 +18,47 @@ AutoMovieSaver 是一个用于自动化收集最新电影的Python项目。通�
    ```bash
    git clone https://github.com/suxss/AutoMovieSaver.git
    ```
-
-2. 安装所需依赖：
+2. 进入项目目录：
    ```bash
-   pip install -r requirements.txt
+   cd AutoMovieSaver
+   ```
+   
+3. 参照以下示例, 编辑 `data` 目录下的 `config.toml` 文件，填写网盘账号信息及其他配置项。
+   ```toml
+   folder_rename_pattern = "{title} ({year})"  # 文件夹命名模板
+   file_rename_pattern = "{title}. {year}"     # 电影文件命名模板
+   api_url = "https://api.siliconflow.cn/v1"   # 大模型API接口
+   model = "Qwen/Qwen2.5-32B-Instruct"         # 模型
+   token = "sk-"                               # API密钥
+   cron = "0 6 * * *"                          # cron 表达式, 默认每次运行时转存前10页中的新电影
+   
+   [[accounts]]
+   username = "139****5210"                    # 天翼云盘用户名(手机号)
+   password = "123456"                         # 天翼云用户密码
+   root_folder = ""                            # 电影存放的文件夹的ID, 为空时将自动在根文件夹创建"电影"文件夹, 并在运行结束后将其id保存至配置文件中以便下一次运行
+   
+   # 支持多个账号
+   #[[accounts]]
+   #username = "139****5210"                    # 天翼云盘用户名(手机号)
+   #password = "123456"                         # 天翼云用户密码
+   #root_folder = "" 
+   
+   # 默认使用 SQLite, 因此以下参数无需配置
+   #[db_info]
+   #username = "root"                           # MySQL用户名
+   #password = "123456"                         # MySQL密码
+   #database = "189_films"                      # MySQL数据库名
+   ```
+   
+4. 构建 docker 镜像：
+   ```bash
+   docker build -t automoviesaver .
    ```
 
-3. 配置 `config.yaml` 文件，填写网盘账号信息及其他配置项。
-
-4. 运行项目：
+5. 运行 docker 容器：
    ```bash
-   python main.py
-   ```
+    docker run -d \
+         --name automoviesaver \
+         --restart always \
+         automoviesaver
+    ```

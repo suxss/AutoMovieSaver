@@ -29,11 +29,11 @@ if __name__ == '__main__':
     from storages.cloud189 import Cloud189Storage
 
 
-    config_path = "config.toml"
+    config_path = "data/config.toml"
     config = load_config(config_path)
 
     def run():
-        config_path = "config.toml"
+        config_path = "data/config.toml"
         config = load_config(config_path)
         logger = LogModule(level=logging.INFO)
         collector = Collector(config, logger, Cloud189Storage, LeiJing, OpenAIParser, SQLiteFilter)
