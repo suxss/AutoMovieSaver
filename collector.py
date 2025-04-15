@@ -24,13 +24,13 @@ class Collector:
                     self.storage.rename(f"{file_name}.{file_ext}", folder_id, file_id)
                     account_type, account_id = self.storage.get_current_account_info()
                     self.filter.record(movie_info, account_type, account_id)
-                    self.logger.log(f"成功保存 {movie_info}", log_type="info")
+                    self.logger.info(f"成功保存 {movie_info}")
                 except Exception as e:
-                    self.logger.log(e, "error")
+                    self.logger.error(e)
         except KeyboardInterrupt:
-            self.logger.log("用户中断", "error")
+            self.logger.info("用户中断")
         except Exception as e:
-            self.logger.log(e, "error")
+            self.logger.error(e)
         finally:
             self.filter.close()
             return self.config

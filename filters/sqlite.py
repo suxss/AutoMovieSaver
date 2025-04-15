@@ -7,7 +7,7 @@ from models.movie_info import MovieInfo
 
 class SQLiteFilter(Filter):
     def __init__(self, config: Config, logger):
-        self.conn = sqlite3.connect('movies.db')
+        self.conn = sqlite3.connect('data/movies.db')
         self.logger = logger
         self.cursor = self.conn.cursor()
 

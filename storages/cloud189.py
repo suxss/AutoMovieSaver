@@ -6,7 +6,6 @@ from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
 from models.config import Config
-from models.logger import Logger
 from models.storage import Storage
 from utils.base import get_file_ext
 from utils.web import WebRequests
@@ -22,7 +21,7 @@ class Cloud189File:
     fileName: str
 
 class Cloud189:
-    def __init__(self, username, password, logger: Logger):
+    def __init__(self, username, password, logger):
         self.web = WebRequests(logger=logger)
         self.username = username
         self.password = password
@@ -165,7 +164,7 @@ class Cloud189:
 
 
 class Cloud189Storage(Storage):
-    def __init__(self, config: Config, logger: Logger):
+    def __init__(self, config: Config, logger):
         self.clients = [Cloud189(username=account.username, password=account.password, logger=logger) for account in config.accounts]
         self.root_folders = [account.root_folder for account in config.accounts]
         self.clients[0].login()

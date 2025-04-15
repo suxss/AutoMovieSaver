@@ -1,20 +1,19 @@
 from typing import Tuple
 
 from models.config import Config
-from models.logger import Logger
 from models.movie_info import MovieInfo
 from models.parser import Parser
 from utils.web import WebRequests
 
 
 class OpenAIParser(Parser):
-    def __init__(self, config: Config, logger: Logger):
+    def __init__(self, config: Config, logger):
         self.web = WebRequests(logger=logger, timeout=5)
         self.config = config
 
     def parse(self, html, prompt) -> Tuple[MovieInfo, str] | None:
         url = f"{self.config.api_url}/chat/completions"
-        data = {"model": self.config.model,  # Qwen/Qwen2.5-32B-Instruct
+        data = {"model": self.config.model,
                 "messages": [
                     {"role": "user", "content": prompt},
                     {"role": "user", "content": html}
