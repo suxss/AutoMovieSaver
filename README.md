@@ -43,7 +43,7 @@ AutoMovieSaver 是一个用于自动化收集最新电影的Python项目。通�
    
 2. 运行 Docker 镜像
    ```bash
-   docker run -d --restart=unless-stopped -v $(pwd)/data:/app/data --name="auto-movie-saver" easychat/auto-movie-saver:v1.0
+   docker run -d --restart=unless-stopped -v $(pwd)/data:/app/data --name="auto-movie-saver" easychat/auto-movie-saver:main
    ```
    
 ### 运行模式
