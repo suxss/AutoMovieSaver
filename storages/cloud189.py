@@ -136,6 +136,7 @@ class Cloud189:
         self.password = password
         self.api_url = "https://cloud.189.cn/api"
         self.cipher = None
+        self.logger = logger
 
     def get_encrypt_config(self):
         url = "https://open.e.189.cn/api/logbox/config/encryptConf.do"
