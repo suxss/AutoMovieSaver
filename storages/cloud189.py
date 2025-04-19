@@ -13,6 +13,115 @@ from utils.web import WebRequests
 PATTERN = r'https*://cloud\.189\.cn/(?:t/|web/share\?code=)([A-Za-z0-9]+)(?:.*?访问码：([A-Za-z0-9]+))?'
 COMPILE = re.compile(PATTERN)
 
+
+class Cloud189Error(Exception):
+    """天翼云盘操作基础异常"""
+    
+    def __init__(self, message: str = "天翼云盘操作错误", code: int = None, details: dict = None):
+        """初始化天翼云盘异常
+        
+        Args:
+            message: 错误消息
+            code: 错误代码
+            details: 额外的错误详情
+        """
+        self.message = message
+        self.code = code
+        self.details = details or {}
+        super().__init__(self.message)
+        
+    def __str__(self) -> str:
+        """返回易读的错误信息"""
+        if self.code:
+            return f"{self.__class__.__name__} [错误码: {self.code}]: {self.message}"
+        return f"{self.__class__.__name__}: {self.message}"
+        
+    def add_detail(self, key: str, value: str) -> None:
+        """添加错误详情
+        
+        Args:
+            key: 详情键
+            value: 详情值
+        """
+        self.details[key] = value
+
+
+class ShareLinkError(Cloud189Error):
+    """分享链接处理错误"""
+    
+    def __init__(self, message: str = "分享链接处理错误", code: int = None, details: dict = None, 
+                 link: str = None, share_code: str = None):
+        """初始化分享链接异常
+        
+        Args:
+            message: 错误消息
+            code: 错误代码
+            details: 额外的错误详情
+            link: 原始分享链接
+            share_code: 分享码
+        """
+        super().__init__(message, code, details)
+        if link:
+            self.add_detail("link", link)
+        if share_code:
+            self.add_detail("share_code", share_code)
+
+
+class StorageError(Cloud189Error):
+    """存储空间相关错误"""
+    
+    def __init__(self, message: str = "存储空间错误", code: int = None, details: dict = None, 
+                 account: str = None, needed_space: int = None, available_space: int = None):
+        """初始化存储空间异常
+        
+        Args:
+            message: 错误消息
+            code: 错误代码
+            details: 额外的错误详情
+            account: 涉及的账号
+            needed_space: 需要的空间大小（字节）
+            available_space: 可用空间大小（字节）
+        """
+        super().__init__(message, code, details)
+        if account:
+            self.add_detail("account", account)
+        if needed_space is not None:
+            self.add_detail("needed_space", str(needed_space))
+        if available_space is not None:
+            self.add_detail("available_space", str(available_space))
+            
+    def is_space_insufficient(self) -> bool:
+        """判断是否为空间不足错误"""
+        return "空间不足" in self.message or "insufficient" in self.message.lower()
+
+
+class FileOperationError(Cloud189Error):
+    """文件操作错误"""
+    
+    def __init__(self, message: str = "文件操作错误", code: int = None, details: dict = None, 
+                 operation: str = None, file_id: str = None, file_name: str = None, folder_id: str = None):
+        """初始化文件操作异常
+        
+        Args:
+            message: 错误消息
+            code: 错误代码
+            details: 额外的错误详情
+            operation: 操作类型（例如：创建、删除、重命名等）
+            file_id: 文件ID
+            file_name: 文件名
+            folder_id: 文件夹ID
+        """
+        super().__init__(message, code, details)
+        if operation:
+            self.add_detail("operation", operation)
+        if file_id:
+            self.add_detail("file_id", file_id)
+        if file_name:
+            self.add_detail("file_name", file_name)
+        if folder_id:
+            self.add_detail("folder_id", folder_id)
+
+
 @dataclass
 class Cloud189File:
     fileId: str
@@ -151,16 +260,68 @@ class Cloud189:
         return []
 
     def rename_file(self, name: str, folder_id: str, file_id: str=None):
-        if file_id is None:
-            files = self.list_files(folder_id)
-            if files:
+        """重命名文件
+        
+        Args:
+            name: 新文件名
+            folder_id: 文件夹ID
+            file_id: 文件ID，为None时尝试获取文件夹中第一个文件
+            
+        Returns:
+            bool: 重命名是否成功
+            
+        Raises:
+            FileOperationError: 获取文件列表失败或重命名失败
+        """
+        try:
+            # 如果没有指定文件ID，获取文件夹中的第一个文件
+            if file_id is None:
+                files = self.list_files(folder_id)
+                if not files:
+                    error_msg = f"获取文件列表失败: 文件夹 {folder_id} 为空或不存在"
+                    self.logger.error(error_msg)
+                    raise FileOperationError(
+                        message=error_msg,
+                        operation="rename",
+                        folder_id=folder_id
+                    )
+                    
                 file_id = files[0].get("id")
+                self.logger.debug(f"使用文件夹 {folder_id} 中的第一个文件: {file_id}")
+                
+            # 执行重命名操作
+            url = f"{self.api_url}/open/file/renameFile.action"
+            data = {"fileId": file_id, "destFileName": name}
+            
+            self.logger.debug(f"重命名文件: {file_id} -> {name}")
+            r = self.web.post(url, data=data)
+            
+            if r.status_code == 200:
+                self.logger.info(f"重命名文件成功: {file_id} -> {name}")
+                return True
             else:
-                raise BaseException("获取文件列表失败")
-        url = f"{self.api_url}/open/file/renameFile.action"
-        data = {"fileId": file_id, "destFileName": name}
-        r = self.web.post(url, data=data)
-        return r.status_code == 200
+                error_msg = f"重命名文件失败: HTTP {r.status_code}"
+                self.logger.error(error_msg)
+                raise FileOperationError(
+                    message=error_msg,
+                    operation="rename",
+                    file_id=file_id,
+                    file_name=name,
+                    folder_id=folder_id
+                )
+                
+        except Exception as e:
+            if isinstance(e, FileOperationError):
+                raise
+                
+            error_msg = f"重命名文件时出错: {str(e)}"
+            self.logger.error(error_msg)
+            raise FileOperationError(
+                message=error_msg,
+                operation="rename",
+                file_id=file_id,
+                folder_id=folder_id
+            ) from e
 
 
 class Cloud189Storage(Storage):
@@ -192,44 +353,156 @@ class Cloud189Storage(Storage):
     def save(self, save_path: str, file_name: str, file_info: str):
         """
         转存分享链接
-        :param file_name:
-        :param save_path: 文件夹id
-        :param file_info: 分享链接
+        
+        Args:
+            save_path: 目标文件夹ID
+            file_name: 文件名
+            file_info: 分享链接
+            
+        Returns:
+            Tuple: 文件扩展名和文件ID
+            
+        Raises:
+            ShareLinkError: 分享链接无效或处理分享链接时出错
+            StorageError: 存储空间不足
+            FileOperationError: 文件操作失败
         """
-        match = COMPILE.search(file_info)
-        if match:
+        self.logger.info(f"开始处理分享链接: {file_info}")
+        
+        # 解析分享链接
+        try:
+            match = COMPILE.search(file_info)
+            if not match:
+                self.logger.error(f"无效的分享链接格式: {file_info}")
+                raise ShareLinkError(f"获取分享码失败: 链接格式无效 - {file_info}")
+                
             share_code = match.group(1)
             if match.group(2):
                 share_code = f"{share_code}（访问码：{match.group(2)}）"
-        else:
-            raise BaseException("获取分享码失败")
-        file, access_code, share_id, share_mode = self.current_client.get_share_info(share_code)
-        if file:
+                
+            self.logger.debug(f"解析得到分享码: {share_code}")
+        except Exception as e:
+            self.logger.error(f"解析分享链接时出错: {e}")
+            raise ShareLinkError(f"解析分享链接时出错: {str(e)}") from e
+        
+        # 获取分享信息
+        try:
+            file, access_code, share_id, share_mode = self.current_client.get_share_info(share_code)
+            if not file:
+                self.logger.error(f"无法获取分享信息: {share_code}")
+                raise ShareLinkError(f"获取分享信息失败: {share_code}")
+                
+            self.logger.debug(f"成功获取分享文件信息: {file.fileName}, 大小: {file.fileSize}")
+        except Exception as e:
+            self.logger.error(f"获取分享信息失败: {e}")
+            raise ShareLinkError(f"获取分享信息失败: {str(e)}") from e
+            
+        # 获取文件列表
+        try:
             files = self.current_client.list_share_dir(file.fileId, access_code, share_id, share_mode)
             if files:
                 max_size_file = max(files, key=lambda f: f.fileSize)
+                self.logger.debug(f"选择最大文件: {max_size_file.fileName}, 大小: {max_size_file.fileSize}")
             else:
                 max_size_file = file
+                self.logger.debug(f"使用主文件: {max_size_file.fileName}")
+                
             file_ext = get_file_ext(max_size_file.fileName)
-            try_times = 0
-            while True:
+        except Exception as e:
+            self.logger.error(f"处理分享文件列表时出错: {e}")
+            raise FileOperationError(f"处理分享文件时出错: {str(e)}") from e
+            
+        # 检查存储空间并在多账号间切换
+        try_times = 0
+        while True:
+            try:
                 if self.has_sufficient_storage(max_size_file):
+                    self.logger.info(f"账号 {self.current_client.username} 空间充足，开始转存")
                     break
+                    
                 try_times += 1
+                self.logger.warning(f"账号 {self.current_client.username} 空间不足，切换到下一个账号")
                 self.switch_client()
+                
                 if try_times > self.accounts_num:
-                    raise "空间不足"
-            if not self.current_client.save_share_file(max_size_file.fileId, share_id, f"{file_name}.{file_ext}", save_path):
-                raise BaseException("转存失败")
-            else:
-                return file_ext, None
-        raise BaseException("获取分享信息失败")
+                    self.logger.error("所有账号空间均不足，无法继续转存")
+                    raise StorageError(f"所有账号空间均不足，文件大小: {max_size_file.fileSize}")
+            except StorageError:
+                raise
+            except Exception as e:
+                self.logger.error(f"检查存储空间时出错: {e}")
+                raise StorageError(f"检查存储空间时出错: {str(e)}") from e
+            
+        # 执行转存操作
+        try:
+            save_result = self.current_client.save_share_file(
+                max_size_file.fileId, 
+                share_id, 
+                f"{file_name}.{file_ext}", 
+                save_path
+            )
+            
+            if not save_result:
+                self.logger.error(f"转存失败: {max_size_file.fileName}")
+                raise FileOperationError(f"转存文件失败: {max_size_file.fileName}")
+                
+            self.logger.info(f"成功转存文件: {file_name}.{file_ext}")
+            return file_ext, None
+        except Exception as e:
+            if isinstance(e, FileOperationError):
+                raise
+            self.logger.error(f"转存过程中出错: {e}")
+            raise FileOperationError(f"转存过程中出错: {str(e)}") from e
 
     def has_sufficient_storage(self, file: Cloud189File) -> bool:
-        storage_info = self.current_client.get_size_info()
-        if storage_info is None:
-            raise BaseException("获取剩余空间信息失败")
-        return storage_info.get("freeSize", 0) > file.fileSize
+        """检查当前账号是否有足够空间存储文件
+        
+        Args:
+            file: 要存储的文件对象
+            
+        Returns:
+            bool: 是否有足够空间
+            
+        Raises:
+            StorageError: 获取存储空间信息失败
+        """
+        try:
+            storage_info = self.current_client.get_size_info()
+            
+            if storage_info is None:
+                self.logger.error(f"账号 {self.current_client.username} 无法获取存储空间信息")
+                raise StorageError(
+                    message="获取剩余空间信息失败",
+                    account=self.current_client.username,
+                    operation="检查存储空间"
+                )
+                
+            available_space = storage_info.get("freeSize", 0)
+            needed_space = file.fileSize
+            
+            # 添加额外的安全边界，确保有足够空间（额外预留10MB）
+            is_sufficient = available_space > needed_space + (10 * 1024 * 1024)
+            
+            if not is_sufficient:
+                self.logger.warning(
+                    f"空间不足: 账号 {self.current_client.username} - "
+                    f"需要: {needed_space/(1024*1024):.2f}MB, "
+                    f"可用: {available_space/(1024*1024):.2f}MB"
+                )
+                
+            return is_sufficient
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+                
+            error_msg = f"检查存储空间时出错: {str(e)}"
+            self.logger.error(error_msg)
+            raise StorageError(
+                message=error_msg,
+                account=self.current_client.username,
+                needed_space=file.fileSize
+            ) from e
 
     def rename(self, new_name: str, path: str, origin_name: str=None):
         """
