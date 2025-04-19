@@ -148,7 +148,7 @@ def main(config_path: str = "data/config.toml", log_level: int = logging.INFO):
         if config.cron:
             # 添加定时任务
             scheduler.add_job(
-                lambda: run_collector(config_path), 
+                lambda: run_collector(config_path, log_level), 
                 trigger=CronTrigger.from_crontab(config.cron)
             )
             print(f"定时任务已设置: {config.cron}", flush=True)
